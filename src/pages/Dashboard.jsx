@@ -1,30 +1,21 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { db } from "@/lib/firebase";
-import { collection, query, where, getDocs, orderBy, addDoc, serverTimestamp } from "firebase/firestore";
+import { collection, query, where, getDocs, orderBy } from "firebase/firestore";
 import { Link } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, Home, Users } from "lucide-react";
+import CreateProjectDialog from "@/components/CreateProjectDialog";
 
 export default function Dashboard() {
     const { currentUser, userRole } = useAuth();
     const [projects, setProjects] = useState([]);
     const [loading, setLoading] = useState(true);
-
-    // Create Project State
     const [isCreateOpen, setIsCreateOpen] = useState(false);
-    const [newProject, setNewProject] = useState({
-        projectName: "",
-        projectCode: "",
-        location: "",
-        totalPrice: ""
-    });
-    const [creating, setCreating] = useState(false);
 
     useEffect(() => {
         fetchProjects();
@@ -74,28 +65,6 @@ export default function Dashboard() {
         }
     }
 
-    const handleCreateProject = async (e) => {
-        e.preventDefault();
-        setCreating(true);
-        try {
-            await addDoc(collection(db, "projects"), {
-                ...newProject,
-                totalPrice: Number(newProject.totalPrice),
-                status: "active",
-                createdAt: serverTimestamp(),
-                ownerId: "", // Will be assigned via invite
-                assignedStaffIds: []
-            });
-            setIsCreateOpen(false);
-            setNewProject({ projectName: "", projectCode: "", location: "", totalPrice: "" });
-            fetchProjects();
-        } catch (error) {
-            console.error("Error creating project:", error);
-        } finally {
-            setCreating(false);
-        }
-    };
-
     if (loading) {
         return (
             <div className="p-4 space-y-4 max-w-md mx-auto">
@@ -118,62 +87,16 @@ export default function Dashboard() {
                     </p>
                 </div>
                 {userRole === "admin" && (
-                    <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-                        <DialogTrigger asChild>
-                            <Button size="icon" variant="outline">
-                                <Plus className="h-4 w-4" />
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                            <DialogHeader>
-                                <DialogTitle>Create New Project</DialogTitle>
-                                <DialogDescription>Enter project details to start.</DialogDescription>
-                            </DialogHeader>
-                            <form onSubmit={handleCreateProject} className="space-y-4">
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium">Project Name</label>
-                                    <Input
-                                        required
-                                        value={newProject.projectName}
-                                        onChange={(e) => setNewProject({ ...newProject, projectName: e.target.value })}
-                                        placeholder="e.g., Modern Loft House"
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium">Project Code</label>
-                                    <Input
-                                        required
-                                        value={newProject.projectCode}
-                                        onChange={(e) => setNewProject({ ...newProject, projectCode: e.target.value })}
-                                        placeholder="e.g., HBP-24-001"
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium">Location</label>
-                                    <Input
-                                        required
-                                        value={newProject.location}
-                                        onChange={(e) => setNewProject({ ...newProject, location: e.target.value })}
-                                        placeholder="e.g., Bangkok, Thailand"
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium">Total Price (฿)</label>
-                                    <Input
-                                        required
-                                        type="number"
-                                        value={newProject.totalPrice}
-                                        onChange={(e) => setNewProject({ ...newProject, totalPrice: e.target.value })}
-                                    />
-                                </div>
-                                <DialogFooter>
-                                    <Button type="submit" disabled={creating}>
-                                        {creating ? "Creating..." : "Create Project"}
-                                    </Button>
-                                </DialogFooter>
-                            </form>
-                        </DialogContent>
-                    </Dialog>
+                    <>
+                        <Button size="icon" variant="outline" onClick={() => setIsCreateOpen(true)}>
+                            <Plus className="h-4 w-4" />
+                        </Button>
+                        <CreateProjectDialog
+                            open={isCreateOpen}
+                            onOpenChange={setIsCreateOpen}
+                            onProjectCreated={fetchProjects}
+                        />
+                    </>
                 )}
             </header>
 
