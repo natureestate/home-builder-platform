@@ -1,0 +1,38 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    // Users: Users can read and write their own profile
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // Projects: Allow authenticated users to access projects
+    // (Refine this later for strict RBAC if needed)
+    match /projects/{projectId} {
+      allow read, write: if isAuthenticated();
+      
+      match /installments/{installmentId} {
+        allow read, write: if isAuthenticated();
+      }
+      
+      match /change_requests/{crId} {
+        allow read, write: if isAuthenticated();
+      }
+    }
+
+    // Invites: Public read allowed (to verify token), Write only by authenticated (admin)
+    match /invites/{inviteId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+  }
+}
