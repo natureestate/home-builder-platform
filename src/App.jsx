@@ -6,6 +6,7 @@ import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 import ProjectDetails from "@/pages/ProjectDetails";
 import Invite from "@/pages/Invite";
+import SeedMockData from "@/pages/SeedMockData";
 
 function App() {
   return (
@@ -15,6 +16,7 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/invite/:token" element={<Invite />} />
+          <Route path="/seed-mock-data" element={<SeedMockData />} />
           <Route
             path="/"
             element={
