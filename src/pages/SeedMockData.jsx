@@ -1,98 +1,176 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
-import { collection, addDoc, setDoc, doc, Timestamp } from "firebase/firestore";
+import { collection, addDoc, setDoc, doc, Timestamp, getDocs } from "firebase/firestore";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Database, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Database, CheckCircle, AlertCircle, Loader2, RefreshCw } from "lucide-react";
 
 export default function SeedMockData() {
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(false);
     const [error, setError] = useState("");
     const [logs, setLogs] = useState([]);
+    const [userIds, setUserIds] = useState({
+        admin: '',
+        staff1: '',
+        staff2: '',
+        client1: '',
+        client2: ''
+    });
+    const [autoDetecting, setAutoDetecting] = useState(false);
 
     const addLog = (message, type = "info") => {
         setLogs(prev => [...prev, { message, type, time: new Date().toLocaleTimeString() }]);
     };
 
-    // Mock Users Data
-    const mockUsers = [
-        {
-            id: 'admin-001',
-            email: 'admin@homebuilder.com',
-            fullName: 'Admin User',
-            role: 'admin',
-            createdAt: new Date(),
-            avatarUrl: null
-        },
-        {
-            id: 'staff-001',
-            email: 'staff1@homebuilder.com',
-            fullName: 'Somchai Builder',
-            role: 'staff',
-            createdAt: new Date(),
-            avatarUrl: null
-        },
-        {
-            id: 'staff-002',
-            email: 'staff2@homebuilder.com',
-            fullName: 'Nattaya Designer',
-            role: 'staff',
-            createdAt: new Date(),
-            avatarUrl: null
-        },
-        {
-            id: 'client-001',
-            email: 'client1@example.com',
-            fullName: 'Anan Sukhum',
-            role: 'client',
-            createdAt: new Date(),
-            avatarUrl: null
-        },
-        {
-            id: 'client-002',
-            email: 'client2@example.com',
-            fullName: 'Suda Bangkok',
-            role: 'client',
-            createdAt: new Date(),
-            avatarUrl: null
-        }
-    ];
+    // Auto-detect users from Firestore
+    const autoDetectUsers = async () => {
+        setAutoDetecting(true);
+        addLog("🔍 Auto-detecting users from Firestore...", "info");
 
-    // Mock Projects Data
-    const mockProjects = [
-        {
-            projectName: 'Modern Loft House',
-            projectCode: 'HBP-2024-001',
-            location: 'Sukhumvit 101, Bangkok',
-            totalPrice: 8500000,
-            status: 'active',
-            ownerId: 'client-001',
-            assignedStaffIds: ['staff-001', 'staff-002'],
-            createdAt: Timestamp.fromDate(new Date('2024-01-15'))
-        },
-        {
-            projectName: 'Tropical Villa',
-            projectCode: 'HBP-2024-002',
-            location: 'Phuket, Thailand',
-            totalPrice: 12000000,
-            status: 'active',
-            ownerId: 'client-002',
-            assignedStaffIds: ['staff-001'],
-            createdAt: Timestamp.fromDate(new Date('2024-02-20'))
-        },
-        {
-            projectName: 'Cozy Townhouse',
-            projectCode: 'HBP-2024-003',
-            location: 'Chiang Mai, Thailand',
-            totalPrice: 4500000,
-            status: 'active',
-            ownerId: 'client-001',
-            assignedStaffIds: ['staff-002'],
-            createdAt: Timestamp.fromDate(new Date('2024-03-10'))
+        try {
+            const usersSnapshot = await getDocs(collection(db, 'users'));
+            const detectedIds = {
+                admin: '',
+                staff1: '',
+                staff2: '',
+                client1: '',
+                client2: ''
+            };
+
+            let adminCount = 0;
+            let staffCount = 0;
+            let clientCount = 0;
+
+            usersSnapshot.forEach((doc) => {
+                const userData = doc.data();
+                const uid = doc.id;
+
+                if (userData.role === 'admin' && !detectedIds.admin) {
+                    detectedIds.admin = uid;
+                    adminCount++;
+                    addLog(`✓ Found Admin: ${userData.email} (${uid})`, "success");
+                } else if (userData.role === 'staff') {
+                    if (!detectedIds.staff1) {
+                        detectedIds.staff1 = uid;
+                        staffCount++;
+                        addLog(`✓ Found Staff 1: ${userData.email} (${uid})`, "success");
+                    } else if (!detectedIds.staff2) {
+                        detectedIds.staff2 = uid;
+                        staffCount++;
+                        addLog(`✓ Found Staff 2: ${userData.email} (${uid})`, "success");
+                    }
+                } else if (userData.role === 'client') {
+                    if (!detectedIds.client1) {
+                        detectedIds.client1 = uid;
+                        clientCount++;
+                        addLog(`✓ Found Client 1: ${userData.email} (${uid})`, "success");
+                    } else if (!detectedIds.client2) {
+                        detectedIds.client2 = uid;
+                        clientCount++;
+                        addLog(`✓ Found Client 2: ${userData.email} (${uid})`, "success");
+                    }
+                }
+            });
+
+            setUserIds(detectedIds);
+
+            if (adminCount === 0 || staffCount < 2 || clientCount < 2) {
+                addLog("⚠️ Warning: Not all required users found. Please create them in Firebase Auth and add to Firestore first.", "error");
+            } else {
+                addLog("✅ All required users detected!", "success");
+            }
+        } catch (err) {
+            addLog(`❌ Error detecting users: ${err.message}`, "error");
+        } finally {
+            setAutoDetecting(false);
         }
-    ];
+    };
+
+    // Get mock users data with real UIDs
+    const getMockUsers = () => {
+        return [
+            {
+                id: userIds.admin,
+                email: 'admin@homebuilder.com',
+                fullName: 'Admin User',
+                role: 'admin',
+                createdAt: new Date(),
+                avatarUrl: null
+            },
+            {
+                id: userIds.staff1,
+                email: 'staff1@homebuilder.com',
+                fullName: 'Somchai Builder',
+                role: 'staff',
+                createdAt: new Date(),
+                avatarUrl: null
+            },
+            {
+                id: userIds.staff2,
+                email: 'staff2@homebuilder.com',
+                fullName: 'Nattaya Designer',
+                role: 'staff',
+                createdAt: new Date(),
+                avatarUrl: null
+            },
+            {
+                id: userIds.client1,
+                email: 'client1@example.com',
+                fullName: 'Anan Sukhum',
+                role: 'client',
+                createdAt: new Date(),
+                avatarUrl: null
+            },
+            {
+                id: userIds.client2,
+                email: 'client2@example.com',
+                fullName: 'Suda Bangkok',
+                role: 'client',
+                createdAt: new Date(),
+                avatarUrl: null
+            }
+        ];
+    };
+
+    // Get mock projects data with real UIDs
+    const getMockProjects = () => {
+        return [
+            {
+                projectName: 'Modern Loft House',
+                projectCode: 'HBP-2024-001',
+                location: 'Sukhumvit 101, Bangkok',
+                totalPrice: 8500000,
+                status: 'active',
+                ownerId: userIds.client1,
+                assignedStaffIds: [userIds.staff1, userIds.staff2],
+                createdAt: Timestamp.fromDate(new Date('2024-01-15'))
+            },
+            {
+                projectName: 'Tropical Villa',
+                projectCode: 'HBP-2024-002',
+                location: 'Phuket, Thailand',
+                totalPrice: 12000000,
+                status: 'active',
+                ownerId: userIds.client2,
+                assignedStaffIds: [userIds.staff1],
+                createdAt: Timestamp.fromDate(new Date('2024-02-20'))
+            },
+            {
+                projectName: 'Cozy Townhouse',
+                projectCode: 'HBP-2024-003',
+                location: 'Chiang Mai, Thailand',
+                totalPrice: 4500000,
+                status: 'active',
+                ownerId: userIds.client1,
+                assignedStaffIds: [userIds.staff2],
+                createdAt: Timestamp.fromDate(new Date('2024-03-10'))
+            }
+        ];
+    };
 
     // Create installments for a project
     const createInstallments = (totalPrice) => {
@@ -192,6 +270,13 @@ export default function SeedMockData() {
     };
 
     const handleSeedData = async () => {
+        // Validate that all user IDs are set
+        if (!userIds.admin || !userIds.staff1 || !userIds.staff2 || !userIds.client1 || !userIds.client2) {
+            setError("Please detect or enter all user IDs first!");
+            addLog("❌ Error: Missing user IDs. Please click 'Auto-Detect Users' first.", "error");
+            return;
+        }
+
         setLoading(true);
         setSuccess(false);
         setError("");
@@ -200,11 +285,14 @@ export default function SeedMockData() {
         try {
             addLog("🌱 Starting mock data seeding...", "info");
 
-            // 1. Add Users
-            addLog("👥 Adding mock users...", "info");
+            const mockUsers = getMockUsers();
+            const mockProjects = getMockProjects();
+
+            // 1. Add Users to Firestore (using their Firebase Auth UIDs)
+            addLog("👥 Adding/Updating user profiles in Firestore...", "info");
             for (const user of mockUsers) {
                 await setDoc(doc(db, 'users', user.id), user);
-                addLog(`✓ Added user: ${user.fullName} (${user.role})`, "success");
+                addLog(`✓ Added/Updated user: ${user.fullName} (${user.role}) [${user.id}]`, "success");
             }
 
             // 2. Add Projects with subcollections
@@ -251,9 +339,96 @@ export default function SeedMockData() {
                 </p>
             </header>
 
+            {/* User IDs Detection Section */}
             <Card>
                 <CardHeader>
-                    <CardTitle>Mock Data Summary</CardTitle>
+                    <CardTitle>Step 1: Detect User IDs</CardTitle>
+                    <CardDescription>
+                        First, we need to detect the UIDs of users from Firestore.
+                        Make sure you&apos;ve created users in Firebase Authentication and added them to Firestore.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <Button
+                        onClick={autoDetectUsers}
+                        disabled={autoDetecting}
+                        variant="outline"
+                        className="w-full"
+                    >
+                        {autoDetecting ? (
+                            <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Detecting Users...
+                            </>
+                        ) : (
+                            <>
+                                <RefreshCw className="mr-2 h-4 w-4" />
+                                Auto-Detect Users from Firestore
+                            </>
+                        )}
+                    </Button>
+
+                    {/* Show detected UIDs */}
+                    <div className="space-y-2 text-sm">
+                        <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-1">
+                                <Label htmlFor="admin-id" className="text-xs">Admin UID</Label>
+                                <Input
+                                    id="admin-id"
+                                    value={userIds.admin}
+                                    onChange={(e) => setUserIds(prev => ({ ...prev, admin: e.target.value }))}
+                                    placeholder="Auto-detected or enter manually"
+                                    className="font-mono text-xs"
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <Label htmlFor="staff1-id" className="text-xs">Staff 1 UID</Label>
+                                <Input
+                                    id="staff1-id"
+                                    value={userIds.staff1}
+                                    onChange={(e) => setUserIds(prev => ({ ...prev, staff1: e.target.value }))}
+                                    placeholder="Auto-detected or enter manually"
+                                    className="font-mono text-xs"
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <Label htmlFor="staff2-id" className="text-xs">Staff 2 UID</Label>
+                                <Input
+                                    id="staff2-id"
+                                    value={userIds.staff2}
+                                    onChange={(e) => setUserIds(prev => ({ ...prev, staff2: e.target.value }))}
+                                    placeholder="Auto-detected or enter manually"
+                                    className="font-mono text-xs"
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <Label htmlFor="client1-id" className="text-xs">Client 1 UID</Label>
+                                <Input
+                                    id="client1-id"
+                                    value={userIds.client1}
+                                    onChange={(e) => setUserIds(prev => ({ ...prev, client1: e.target.value }))}
+                                    placeholder="Auto-detected or enter manually"
+                                    className="font-mono text-xs"
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <Label htmlFor="client2-id" className="text-xs">Client 2 UID</Label>
+                                <Input
+                                    id="client2-id"
+                                    value={userIds.client2}
+                                    onChange={(e) => setUserIds(prev => ({ ...prev, client2: e.target.value }))}
+                                    placeholder="Auto-detected or enter manually"
+                                    className="font-mono text-xs"
+                                />
+                            </div>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Step 2: Seed Mock Data</CardTitle>
                     <CardDescription>This will create the following data in Firestore:</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -283,13 +458,22 @@ export default function SeedMockData() {
                     <div className="border-t pt-4">
                         <h4 className="font-semibold mb-2">Test Credentials:</h4>
                         <div className="space-y-1 text-sm">
-                            <p><Badge variant="outline">Admin</Badge> admin@homebuilder.com</p>
-                            <p><Badge variant="outline">Staff</Badge> staff1@homebuilder.com / staff2@homebuilder.com</p>
-                            <p><Badge variant="outline">Client</Badge> client1@example.com / client2@example.com</p>
+                            <div className="flex items-center gap-2">
+                                <Badge variant="outline">Admin</Badge>
+                                <span>admin@homebuilder.com</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Badge variant="outline">Staff</Badge>
+                                <span>staff1@homebuilder.com / staff2@homebuilder.com</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Badge variant="outline">Client</Badge>
+                                <span>client1@example.com / client2@example.com</span>
+                            </div>
                         </div>
-                        <p className="text-xs text-amber-600 mt-2 bg-amber-50 p-2 rounded">
+                        <div className="text-xs text-amber-600 mt-2 bg-amber-50 p-2 rounded">
                             ⚠️ Note: You need to create these users in Firebase Authentication manually!
-                        </p>
+                        </div>
                     </div>
 
                     <Button
