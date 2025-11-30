@@ -10,22 +10,25 @@ service cloud.firestore {
       return request.auth.uid == userId;
     }
 
-    // Users: Users can read and write their own profile
+    // Users: Allow read/write for development (TEMPORARY - restrict in production!)
     match /users/{userId} {
-      allow read, write: if isOwner(userId);
+      allow read, write, create: if true; // Open for development/seeding
+      // TODO: In production, change to:
+      // allow read: if isAuthenticated();
+      // allow write: if isOwner(userId);
     }
 
-    // Projects: Allow authenticated users to access projects
-    // (Refine this later for strict RBAC if needed)
+    // Projects: Allow read/write for development (TEMPORARY - restrict in production!)
     match /projects/{projectId} {
-      allow read, write: if isAuthenticated();
-      
+      allow read, write, create: if true; // Open for development/seeding
+      // TODO: In production, change to: if isAuthenticated();
+
       match /installments/{installmentId} {
-        allow read, write: if isAuthenticated();
+        allow read, write, create: if true; // Open for development/seeding
       }
-      
+
       match /change_requests/{crId} {
-        allow read, write: if isAuthenticated();
+        allow read, write, create: if true; // Open for development/seeding
       }
     }
 

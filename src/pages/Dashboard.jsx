@@ -26,6 +26,11 @@ export default function Dashboard() {
 
         setLoading(true);
         try {
+            console.log("🔍 Debug Info:");
+            console.log("User UID:", currentUser.uid);
+            console.log("User Email:", currentUser.email);
+            console.log("User Role:", userRole);
+
             let q;
             const projectsRef = collection(db, "projects");
 
@@ -52,6 +57,9 @@ export default function Dashboard() {
                 id: doc.id,
                 ...doc.data(),
             }));
+
+            console.log("📊 Projects found:", projectsData.length);
+            console.log("Projects data:", projectsData);
 
             if (userRole !== "admin") {
                 projectsData.sort((a, b) => b.createdAt?.seconds - a.createdAt?.seconds);
